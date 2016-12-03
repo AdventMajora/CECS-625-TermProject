@@ -111,6 +111,8 @@ int main() {
 	}*/
 
 	//do the things
+	clock_t start, end;
+	start = clock();
 	while (current_generation < generation_limit) {
 		sim_generation();
 	}
@@ -128,6 +130,8 @@ int main() {
 		cout << populations[0][0].route[j].city_name << ", ";
 	}
 	cout << populations[0][0].distance << endl;
+	end = clock();
+	cout << "Time: " << (double)(end - start) / CLOCKS_PER_SEC << " seconds." << endl;
 
 	system("pause");
 	return 0;
@@ -228,6 +232,7 @@ float route_distance(vector<city> calc_path) {
 	return total_distance;
 }
 
+//PARALLEL SHIT WILL BE IN THIS FUNC
 //simulates a generation of growth
 void sim_generation() {
 	if (current_generation > generation_limit) {
@@ -311,7 +316,7 @@ void sim_generation() {
 			sort(final_pop.begin(), final_pop.end());
 
 			populations[p] = final_pop;
-			cout << populations[0][0].distance << endl;
+			//cout << populations[0][0].distance << endl;
 		}
 	}
 }
