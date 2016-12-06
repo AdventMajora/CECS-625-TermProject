@@ -6,6 +6,7 @@
 #include <sstream>
 #include <time.h>
 
+
 using namespace std;
 
 struct city {
@@ -55,8 +56,8 @@ void sim_generation();
 vector<city> crossover(int, int, int);
 vector<city> mutation(vector<city>);
 
-int num_pops = 1;
-int pop_size = 100;
+int num_pops = 8;
+int pop_size = 500;
 int dimension;
 string edge_weight;
 vector<city> cities;
@@ -64,7 +65,7 @@ vector<vector<float>> dist_table;
 vector<vector<path>> populations;
 int current_generation = 0;
 int generation_limit = 500;
-string test_file = "Random22.tsp";
+string test_file = "Random11.tsp";
 int mutation_prob = 90;
 int elitism = .05;
 
@@ -232,39 +233,40 @@ float route_distance(vector<city> calc_path) {
 	return total_distance;
 }
 
-//PARALLEL SHIT WILL BE IN THIS FUNC
 //simulates a generation of growth
 void sim_generation() {
 	if (current_generation > generation_limit) {
 		cout << "Simultion complete!" << endl;
 	} else {
-		float total_distances = 0;
-		float running_distance = 0;
-		float total_probs = 0;
-		int p1_path_index, p2_path_index;
-		int sel;
-		float rnd;
-		string tmp;
-		vector<city> offspring;
-		vector<path> new_pop, final_pop;
 
 		current_generation++;
-		for (unsigned p = 0; p < populations.size(); p++) {
-			new_pop.clear();
-			//PARALLELIZE THIS SHIT HERE
-			for (unsigned i = 0; i < populations[p].size(); i++) {
+		#pragma omp parallel for shared(populations)
+		for (int p = 0; p < populations.size(); p++) {
+			vector<path> new_pop, final_pop;
+			float total_distances = 0;
+			float running_distance = 0;
+			float total_probs = 0;
+			string tmp;
+
+			//set up roulette
+			total_distances = 0;
+			running_distance = 0;
+			total_probs = 0;
+			for (unsigned j = 0; j < populations[p].size(); j++) {
+				total_distances += populations[p][j].distance;
+			}
+			for (unsigned j = 0; j < populations[p].size(); j++) {
+				populations[p][j].prob = 1 - (populations[p][j].distance / total_distances);
+				total_probs += populations[p][j].prob;
+			}
+
+			#pragma omp parallel for shared (populations, new_pop, total_probs, mutation_prob)
+			for (int i = 0; i < populations[p].size(); i++) {
 				
-				//set up roulette
-				total_distances = 0;
-				running_distance = 0;
-				total_probs = 0;
-				for (unsigned j = 0; j < populations[p].size(); j++) {
-					total_distances += populations[p][j].distance;
-				}
-				for (unsigned j = 0; j < populations[p].size(); j++) {
-					populations[p][j].prob = 1 - (populations[p][j].distance / total_distances);
-					total_probs += populations[p][j].prob;
-				}
+				float rnd;
+				int sel;
+				int p1_path_index, p2_path_index;
+				vector<city> offspring;
 
 				//select parent 1
 				rnd = (int)floor(((double)rand() / (RAND_MAX))*total_probs);
@@ -296,6 +298,7 @@ void sim_generation() {
 					offspring = mutation(offspring);
 				}
 
+				#pragma omp critical
 				new_pop.push_back(path(offspring, route_distance(offspring)));
 			}
 			sort(new_pop.begin(), new_pop.end());
@@ -314,9 +317,10 @@ void sim_generation() {
 			}
 
 			sort(final_pop.begin(), final_pop.end());
-
+			
+			#pragma omp critical
 			populations[p] = final_pop;
-			//cout << populations[0][0].distance << endl;
+			cout << "gen " << current_generation<< ": " <<populations[0][0].distance << endl;
 		}
 	}
 }
